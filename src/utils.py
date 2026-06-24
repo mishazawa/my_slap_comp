@@ -2,6 +2,7 @@ import struct
 import OpenImageIO as oiio
 import numpy as np
 from src.image import Image
+from settings import SHADOW_LIMIT
 
 
 def read_image(filepath):
@@ -118,7 +119,7 @@ def desaturate_pixels(pixels, factor=0.15):
     return desaturated_rgb
 
 
-def calculate_shadow_params(light_vec, max_shadow_distance=10.0):
+def calculate_shadow_params(light_vec, max_shadow_distance=SHADOW_LIMIT):
     lx, ly, lz = light_vec
 
     # FIX: Use np.maximum instead of the shadowed max() function
