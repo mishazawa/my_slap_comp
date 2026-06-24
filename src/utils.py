@@ -1,7 +1,7 @@
+import struct
 import OpenImageIO as oiio
 import numpy as np
 from src.image import Image
-import struct
 
 
 def read_image(filepath):
@@ -84,21 +84,59 @@ def get_masked_pixels(pixels, mask):
     return masked
 
 
-def add_shadow_to_a_layer(
-    pixels,
-    offset=(15, 15),
-    blur_radius=15.0,
-    shadow_color=(0.0, 0.0, 0.0),
-    shadow_intensity=0.5,
-):
-    """Adds a soft customizable shadow to a layer using OpenImageIO ImageBufAlgo.
+def desaturate_pixels(pixels, factor=0.15):
+    """
+    Slightly desaturates an RGB or RGBA image. Safe for single-channel inputs.
+    """
+    # 1. Check channels
+    channels = pixels.shape[2] if pixels.ndim == 3 else 1
 
-    Parameters:
-    - pixels (np.ndarray): Input image array (RGB or RGBA).
-    - offset (tuple): (y_offset, x_offset) in pixels to shift the shadow.
-    - blur_radius (float): Softness of the shadow.
-    - shadow_color (tuple): (R, G, B) normalized color of the shadow (e.g., (0,0,0) for black).
-    - shadow_intensity (float): Max opacity of the shadow (0.0 to 1.0).
+    # If the image is already single-channel (grayscale), it cannot be desaturated
+    if channels == 1:
+        return pixels
+
+    # Separate RGB from Alpha if present
+    if channels == 4:
+        rgb = pixels[:, :, :3]
+        alpha = pixels[:, :, 3:4]
+    else:
+        rgb = pixels
+
+    # 2. Standard Rec. 709 luminance weights
+    weights = np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
+
+    # 3. Create the grayscale baseline
+    luminance = np.dot(rgb, weights)[..., np.newaxis]
+
+    # 4. Blend original image toward the grayscale baseline
+    desaturated_rgb = (1.0 - factor) * rgb + factor * luminance
+
+    # 5. Reconstruct channels
+    if channels == 4:
+        return np.concatenate([desaturated_rgb, alpha], axis=2)
+
+    return desaturated_rgb
+
+
+def calculate_shadow_params(light_vec, max_shadow_distance=10.0):
+    lx, ly, lz = light_vec
+
+    # FIX: Use np.maximum instead of the shadowed max() function
+    shadow_multiplier = max_shadow_distance / np.maximum(lz, 0.01)
+
+    offset_x = -lx * shadow_multiplier
+    offset_y = -ly * shadow_multiplier
+
+    # Blur radius can naturally increase if the shadow gets longer
+    blur_radius = 2.0 + (shadow_multiplier * 0.5)
+
+    return (offset_x, offset_y), blur_radius
+
+
+def array_to_oiio_buf(pixels):
+    """
+    Ensures a NumPy array has 4 channels (RGBA), sets up the Spec,
+    and wraps it cleanly into an OIIO ImageBuf.
     """
     height, width, channels = pixels.shape
 
@@ -112,49 +150,12 @@ def add_shadow_to_a_layer(
     spec = oiio.ImageSpec(width, height, 4, oiio.FLOAT)
     spec.channelnames = ["R", "G", "B", "A"]
 
-    fg_buf = oiio.ImageBuf(spec)
-    fg_buf.set_pixels(oiio.ROI(0, width, 0, height), fg_pixels)
+    # 3. Populate buffer
+    buf = oiio.ImageBuf(spec)
+    buf.set_pixels(oiio.ROI(0, width, 0, height), fg_pixels)
+    return buf, spec, height, width, alpha
 
-    y_off, x_off = offset
-    shifted_alpha = np.roll(alpha, shift=(y_off, x_off), axis=(0, 1))
 
-    if y_off > 0:
-        shifted_alpha[:y_off, :] = 0
-    elif y_off < 0:
-        shifted_alpha[y_off:, :] = 0
-
-    if x_off > 0:
-        shifted_alpha[:, :x_off] = 0
-    elif x_off < 0:
-        shifted_alpha[:, x_off:] = 0
-
-    rgba_mask_pixels = np.concatenate([shifted_alpha] * 4, axis=2)
-
-    shadow_mask_buf = oiio.ImageBuf(spec)
-    shadow_mask_buf.set_pixels(oiio.ROI(0, width, 0, height), rgba_mask_pixels)
-
-    if blur_radius > 0:
-        K = oiio.ImageBufAlgo.make_kernel("gaussian", blur_radius, blur_radius)
-        blurred_shadow_mask = oiio.ImageBuf(spec)
-        oiio.ImageBufAlgo.convolve(blurred_shadow_mask, shadow_mask_buf, K)
-    else:
-        blurred_shadow_mask = shadow_mask_buf
-
-    shadow_color_buf = oiio.ImageBuf(spec)
-
-    fill_color = (
-        shadow_color[0],
-        shadow_color[1],
-        shadow_color[2],
-        shadow_intensity,
-    )
-    oiio.ImageBufAlgo.fill(shadow_color_buf, fill_color)
-
-    shadow_final = oiio.ImageBuf(spec)
-    oiio.ImageBufAlgo.mul(shadow_final, shadow_color_buf, blurred_shadow_mask)
-
-    final_composite = oiio.ImageBuf(spec)
-    oiio.ImageBufAlgo.over(final_composite, shadow_final, final_composite)
-    oiio.ImageBufAlgo.over(final_composite, fg_buf, final_composite)
-
-    return final_composite.get_pixels(oiio.FLOAT)
+def oiio_buf_to_array(buf):
+    """Safely reads an OIIO ImageBuf back into a NumPy float32 array."""
+    return buf.get_pixels(format=oiio.FLOAT)

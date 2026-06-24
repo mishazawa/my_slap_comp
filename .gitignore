@@ -13,3 +13,5 @@ wheels/
 test_data/
 
 .DS_Store
+.serena/
+*.bak

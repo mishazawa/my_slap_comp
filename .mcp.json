@@ -1,0 +1,14 @@
+{
+  "settings": {
+    "toolPrefix": "mcp",
+    "requestTimeoutMs": 30000
+  },
+  "mcpServers": {
+    "lean-ctx": {
+      "transport": "stdio",
+      "command": "lean-ctx",
+      "args": [],
+      "lifecycle": "lazy"
+    }
+  }
+}

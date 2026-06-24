@@ -1,18 +1,39 @@
 import sys
 import os
+import argparse
+
 import OpenImageIO as oiio
+from src.globals import init_global_textures
 from src.core import slap_comp
 from src.image import Image, COLOR_PLANE
 from src.utils import write_image
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python main.py <input_exr_file>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+        description="Run the compositing pipeline on an EXR image."
+    )
+
+    parser.add_argument("input_path", type=str, help="Path to the input .exr file")
+
+    parser.add_argument(
+        "-n",
+        "--noise-dir",
+        type=str,
+        help="Directory containing noise textures",
+    )
+    parser.add_argument(
+        "-p",
+        "--paper-dir",
+        type=str,
+        help="Directory containing paper textures",
+    )
+
+    args = parser.parse_args()
+
+    init_global_textures(args.noise_dir, args.paper_dir)
 
     input_path = sys.argv[1]
 
-    # Generate output path: replace extension with .png
     base_name = os.path.splitext(input_path)[0]
     output_path = f"{base_name}.png"
 
