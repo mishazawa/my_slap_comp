@@ -1,8 +1,9 @@
 import os
-import io
 import OpenImageIO as oiio
 from fastapi import FastAPI, UploadFile, Response
 from contextlib import asynccontextmanager
+import tempfile
+import shutil
 
 from src.globals import init_global_textures
 from src.core import slap_comp
@@ -24,9 +25,9 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 
-def process_image_file(input_buffer):
+def process_image_file(input_path):
     # Run the pipeline logic
-    img = Image.read(input_buffer)
+    img = Image.read(input_path)
     final_gamma_buffer = slap_comp(img)
 
     # Prepare the output image
@@ -44,14 +45,17 @@ def process_image_file(input_buffer):
 
 @app.post("/process/")
 async def process_image(file: UploadFile):
-    # Read uploaded file content
-    content = await file.read()
-    input_buffer = io.BytesIO(content)
+    # Save uploaded file to a temporary file
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".exr") as tmp:
+        shutil.copyfileobj(file.file, tmp)
+        tmp_path = tmp.name
 
-    # ai: this is not work. let's rewrite logic:
-    # - endpoint accept filepath
-    # - process_image_file use this path to open image in oiio way
-    # ai!
-    image_bytes = process_image_file(input_buffer)
+    try:
+        # Process using the file path
+        image_bytes = process_image_file(tmp_path)
+    finally:
+        # Clean up the temporary file
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
 
     return Response(content=image_bytes, media_type="image/png")
