@@ -47,9 +47,11 @@ def process_image_file(input_path):
     return output_path
 
 
+# ai: i want this endpoint to grab input data from request body
+# for now i want to configure pipeline using input parameters
+# described in settings.py
+# i want them to be default to constants from settings.py ai!
 @app.post("/process/")
 async def process_image(filepath: str):
-    # Process using the file path
     output_path = process_image_file(filepath)
-
     return {"output_path": output_path}
