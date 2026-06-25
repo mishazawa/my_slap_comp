@@ -4,6 +4,9 @@ import argparse
 from src.globals import init_global_textures
 from server import process_image_file
 
+# rewrite this file. it is now server starting point
+# every cli arguments now stored as envs so it can be removed ai!
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Run the compositing pipeline on an EXR image."
