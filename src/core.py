@@ -31,6 +31,8 @@ def process_pass(
     shadow_color,
     shadow_intensity,
 ):
+    # ai! i want to write this like chain of calls a().then(b).then(c)
+    # and pass args like here.
     raw_mask = decode_cryptomatte(img, crypto_id, target_hash)
     mask_buf = oiio.ImageBuf(raw_mask.astype(np.float32, copy=False))
     color_buf = ensure_rgba_buf(color_plane["pixels"])
