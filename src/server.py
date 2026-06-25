@@ -38,6 +38,12 @@ def process_image_file(input_path):
         }
     )
 
+    # ai! this doesn't work. let's rewrite server and writing file logic as following:
+    # 1) user sends filepath
+    # 2) server opens this file (assuming client and server on the same system)
+    # 3) server run processing
+    # 4) server save file to the same location with other extension
+    # 5) server respond with created file filepath
     return write_image_to_buffer(final_img, format_extension="png")
 
 
