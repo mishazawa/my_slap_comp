@@ -1,9 +1,7 @@
 import os
 import OpenImageIO as oiio
-from fastapi import FastAPI, UploadFile, Response
+from fastapi import FastAPI, Response
 from contextlib import asynccontextmanager
-import tempfile
-import shutil
 
 from src.globals import init_global_textures
 from src.core import slap_comp
@@ -44,18 +42,8 @@ def process_image_file(input_path):
 
 
 @app.post("/process/")
-async def process_image(filepath: str):  # ai! rewrite endpoint accept file path
-    # Save uploaded file to a temporary file
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".exr") as tmp:
-        shutil.copyfileobj(file.file, tmp)
-        tmp_path = tmp.name
-
-    try:
-        # Process using the file path
-        image_bytes = process_image_file(tmp_path)
-    finally:
-        # Clean up the temporary file
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
+async def process_image(filepath: str):
+    # Process using the file path
+    image_bytes = process_image_file(filepath)
 
     return Response(content=image_bytes, media_type="image/png")
