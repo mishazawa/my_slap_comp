@@ -1,9 +1,8 @@
 import struct
 import OpenImageIO as oiio
 import numpy as np
-import io
-from src.image import Image
-from settings import SHADOW_LIMIT
+from src.image import Image, COLOR_PLANE
+from src.settings import SHADOW_LIMIT
 
 
 def read_image(filepath):
@@ -15,52 +14,40 @@ def read_image(filepath):
 
 def write_image(filepath, image):
     """
-    Writes an Image object to a file.
+    Writes an Image object to a file using its embedded OIIO spec.
     """
     plane_name = next(iter(image.subimages))
     plane = image.get_plane(plane_name)
 
-    height, width, channels = plane["pixels"].shape
-    spec = oiio.ImageSpec(width, height, channels, oiio.FLOAT)
-    spec.channelnames = plane["channel_names"]
-
     output_file = oiio.ImageOutput.create(filepath)
     if not output_file:
-        raise RuntimeError(f"Could not create output file: {filepath}")
+        raise RuntimeError(f"Could not create output file: {oiio.geterror()}")
+
+    # Use the spec directly from your plane dictionary
+    spec = plane["spec"]
 
     output_file.open(filepath, spec)
-    output_file.write_image(plane["pixels"])
-    output_file.close()
+    try:
+        output_file.write_image(plane["pixels"])
+    finally:
+        output_file.close()
 
 
-def supports_ioproxy(format_extension):
-    """Checks if OIIO supports ioproxy for a given format."""
-    out = oiio.ImageOutput.create(f"test.{format_extension}")
-    if not out:
-        return False
-    return out.supports("ioproxy")
-
-
-def write_image_to_buffer(image, format_extension="png"):
-    """Writes an Image object to a memory buffer."""
-    if not supports_ioproxy(format_extension):
-        raise RuntimeError(f"Format {format_extension} does not support ioproxy")
-
-    plane_name = next(iter(image.subimages))
-    plane = image.get_plane(plane_name)
-
-    height, width, channels = plane["pixels"].shape
-    spec = oiio.ImageSpec(width, height, channels, oiio.FLOAT)
-    spec.channelnames = plane["channel_names"]
-
-    buffer = io.BytesIO()
-    
-    out = oiio.ImageOutput.create(f"out.{format_extension}")
-    out.open(buffer, spec)
-    out.write_image(plane["pixels"])
-    out.close()
-    
-    return buffer.getvalue()
+def oiio_buf_to_image(buf, plane_name=COLOR_PLANE):
+    """
+    Converts an OIIO ImageBuf to an Image object.
+    """
+    pixels = buf.get_pixels(oiio.FLOAT)
+    spec = buf.spec()
+    return Image(
+        {
+            plane_name: {
+                "pixels": pixels,
+                "channel_names": ["R", "G", "B", "A"],
+                "spec": spec,
+            }
+        }
+    )
 
 
 def list_image_planes(image):
@@ -80,6 +67,10 @@ def max(data):
 
 def average(data):
     return np.mean(data)
+
+
+def median(data):
+    return np.median(data)
 
 
 def normalize(data):
@@ -104,16 +95,31 @@ def hex_to_float32(hex_str: str) -> float:
     return struct.unpack(">f", packed)[0]
 
 
-def get_masked_pixels(pixels, mask):
+def get_masked_pixels(
+    color_buf: oiio.ImageBuf, mask_buf: oiio.ImageBuf
+) -> oiio.ImageBuf:
     """
-    Returns an RGBA image where the masked region is extracted from the input pixels.
+    Returns an RGBA ImageBuf where the masked region is extracted from color_buf.
+    Both inputs are expected to be OpenImageIO ImageBuf objects.
     """
-    height, width, _ = pixels.shape
-    masked = np.zeros((height, width, 4), dtype=np.float32)
-    mask_bool = mask > 0
-    masked[mask_bool, :3] = pixels[mask_bool, :3]
-    masked[mask_bool, 3] = 1.0
-    return masked
+    # 1. Multiply color pixels by mask opacity
+    masked_color = oiio.ImageBuf()
+    oiio.ImageBufAlgo.mul(masked_color, color_buf, mask_buf)
+
+    # 2. Isolate just the R, G, B channels from your multiplied result
+    # Python syntax expects an explicit tuple of channels to copy or reorder
+    rgb_only = oiio.ImageBufAlgo.channels(masked_color, (0, 1, 2))
+
+    # 3. Force your grayscale mask_buf into a single channel buffer
+    # Just in case mask_buf was initialized with 4 channels elsewhere
+    alpha_only = oiio.ImageBufAlgo.channels(mask_buf, (0,))
+
+    # 4. Append the alpha channel onto the back of the RGB channels
+    # This automatically builds a perfect 4-channel RGBA output image
+    result = oiio.ImageBuf()
+    oiio.ImageBufAlgo.channel_append(result, rgb_only, alpha_only)
+
+    return result
 
 
 def desaturate_pixels(pixels, factor=0.15):
@@ -165,29 +171,24 @@ def calculate_shadow_params(light_vec, max_shadow_distance=SHADOW_LIMIT):
     return (offset_x, offset_y), blur_radius
 
 
-def array_to_oiio_buf(pixels):
+def ensure_rgba_buf(pixels):
     """
-    Ensures a NumPy array has 4 channels (RGBA), sets up the Spec,
-    and wraps it cleanly into an OIIO ImageBuf.
+    Converts a NumPy array to RGBA if needed, and WRAPS it into an ImageBuf.
+    This creates an OIIO buffer that views the same memory space where possible.
     """
     height, width, channels = pixels.shape
 
     if channels == 3:
+        # We must allocate here because we are adding a channel
         alpha = np.ones((height, width, 1), dtype=np.float32)
         fg_pixels = np.concatenate([pixels, alpha], axis=2)
     else:
-        fg_pixels = pixels.astype(np.float32)
-        alpha = fg_pixels[:, :, 3:4]
+        fg_pixels = pixels.astype(np.float32, copy=False)
 
-    spec = oiio.ImageSpec(width, height, 4, oiio.FLOAT)
-    spec.channelnames = ["R", "G", "B", "A"]
+    # Directly initializing ImageBuf with a NumPy array bypasses `set_pixels` copies!
+    buf = oiio.ImageBuf(fg_pixels)
 
-    # 3. Populate buffer
-    buf = oiio.ImageBuf(spec)
-    buf.set_pixels(oiio.ROI(0, width, 0, height), fg_pixels)
-    return buf, spec, height, width, alpha
+    # Force channel names onto the spec if needed
+    buf.specmod().channelnames = ["R", "G", "B", "A"]
 
-
-def oiio_buf_to_array(buf):
-    """Safely reads an OIIO ImageBuf back into a NumPy float32 array."""
-    return buf.get_pixels(format=oiio.FLOAT)
+    return buf

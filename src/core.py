@@ -1,5 +1,7 @@
 import numpy as np
 import OpenImageIO as oiio
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 
 from src.image import COLOR_PLANE, DEPTH_PLANE
 from src.ops import (
@@ -8,25 +10,54 @@ from src.ops import (
     apply_paper,
     smooth_mask,
 )
-from src.utils import (
-    get_masked_pixels,
-    average,
-)
-from settings import (
-    SHADOW_COLOR,
-    SHADOW_INTENSITY,
-    MASK_SMOOTH_WIDTH,
-    MASK_SMOOTH_HEIGHT,
-    OUTLINE_THICKNESS,
-    OUTLINE_COLOR,
-)
+from src.utils import get_masked_pixels, median, ensure_rgba_buf
+
 from src.crypto import (
     list_cryptopass,
     decode_cryptomatte,
 )
+from src.settings import EXECUTOR_THREAD, EXECUTOR_SEQUENCE
 
 
-def slap_comp(img):
+def process_pass(
+    img,
+    color_plane,
+    crypto_id,
+    target_hash,
+    mask_smooth_width,
+    mask_smooth_height,
+    outline_thickness,
+    outline_color,
+    shadow_color,
+    shadow_intensity,
+):
+    raw_mask = decode_cryptomatte(img, crypto_id, target_hash)
+    mask_buf = oiio.ImageBuf(raw_mask.astype(np.float32, copy=False))
+    color_buf = ensure_rgba_buf(color_plane["pixels"])
+    smoothed_mask = smooth_mask(mask_buf, mask_smooth_width, mask_smooth_height)
+    layer = get_masked_pixels(color_buf, smoothed_mask)
+    layer = apply_paper(layer)
+    outlined_layer = add_outline_to_layer(layer, outline_thickness)
+    shadowed_buf = add_shadow_to_a_layer(outlined_layer, shadow_intensity)
+
+    return shadowed_buf
+
+
+def _run_pass_helper(task_tuple, img, color_plane, **kwargs):
+    _, crypto_id, name, target_hash = task_tuple
+    return process_pass(img, color_plane, crypto_id, target_hash, **kwargs)
+
+
+def slap_comp(
+    img,
+    shadow_color,
+    shadow_intensity,
+    outline_thickness,
+    outline_color,
+    mask_smooth_width,
+    mask_smooth_height,
+    executor_type=EXECUTOR_THREAD,
+):
     crypto_passes = list_cryptopass(img)
 
     color_plane = img.get_plane(COLOR_PLANE)
@@ -41,55 +72,46 @@ def slap_comp(img):
             continue
 
         mask = decode_cryptomatte(img, crypto_id, target_hash)
-        avg_depth = average(depth_plane["pixels"][mask > 0.0])
+        avg_depth = median(depth_plane["pixels"][mask > 0.0])
         ordered_passes_pool.append((avg_depth, crypto_id, name, target_hash))
 
     ordered_passes_pool.sort(key=lambda x: x[0], reverse=True)
+    tasks = static_passes_pool + ordered_passes_pool
 
-    height, width, channels = color_plane["pixels"].shape
+    height, width, _ = color_plane["pixels"].shape
     spec = oiio.ImageSpec(width, height, 4, oiio.FLOAT)
     spec.channelnames = ["R", "G", "B", "A"]
 
-    base_pixels = np.zeros((height, width, 4), dtype=np.float32)
-
     accumulated_buffer = oiio.ImageBuf(spec)
-    accumulated_buffer.set_pixels(
-        oiio.ROI(0, width, 0, height), base_pixels.astype(np.float32)
+    oiio.ImageBufAlgo.zero(accumulated_buffer)
+
+    run_pass_func = partial(
+        _run_pass_helper,
+        img=img,
+        color_plane=color_plane,
+        mask_smooth_width=mask_smooth_width,
+        mask_smooth_height=mask_smooth_height,
+        outline_thickness=outline_thickness,
+        outline_color=outline_color,
+        shadow_color=shadow_color,
+        shadow_intensity=shadow_intensity,
     )
 
-    for i, k in enumerate(static_passes_pool + ordered_passes_pool):
-        avg_depth, crypto_id, name, target_hash = k
-        print(f"Compositing: {name} (Avg Depth: {avg_depth:.2f})")
-        print(f"Processing pass: {crypto_id} -> {name} with hash: {target_hash}")
+    processed_layers = []
 
-        mask = smooth_mask(
-            decode_cryptomatte(img, crypto_id, target_hash),
-            MASK_SMOOTH_WIDTH,
-            MASK_SMOOTH_HEIGHT,
-        )
+    if executor_type == EXECUTOR_SEQUENCE:
+        processed_layers = [run_pass_func(k) for k in tasks]
 
-        layer = get_masked_pixels(color_plane["pixels"], mask)
+    if executor_type == EXECUTOR_THREAD:
+        with ThreadPoolExecutor() as executor:
+            processed_layers = list(executor.map(run_pass_func, tasks))
 
-        layer = apply_paper(layer)
-
-        outlined_layer = add_outline_to_layer(
-            layer,
-            outline_thickness=OUTLINE_THICKNESS,
-            outline_color=OUTLINE_COLOR,
-        )
-
-        shadowed_pixels = add_shadow_to_a_layer(
-            outlined_layer,
-            shadow_color=SHADOW_COLOR,
-            shadow_intensity=SHADOW_INTENSITY,
-        )
-
-        layer_buf = oiio.ImageBuf(spec)
-        layer_buf.set_pixels(oiio.ROI(0, width, 0, height), shadowed_pixels)
+    for layer_buf in processed_layers:
         oiio.ImageBufAlgo.over(accumulated_buffer, layer_buf, accumulated_buffer)
 
-    final_gamma_buffer = oiio.ImageBuf(spec)
+    final_gamma_buffer = oiio.ImageBuf()
     oiio.ImageBufAlgo.colorconvert(
         final_gamma_buffer, accumulated_buffer, "linear", "sRGB"
     )
+
     return final_gamma_buffer

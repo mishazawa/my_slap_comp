@@ -1,1 +1,6 @@
-POST http://localhost:8000/process/?filepath=./test_data/0001.exr
+POST http://localhost:8000/process/
+Content-Type: application/json
+
+{
+  "filepath": "./test_data/0001.exr"
+}

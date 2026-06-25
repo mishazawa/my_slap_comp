@@ -1,5 +1,5 @@
 import os
-import OpenImageIO as oiio
+from pathlib import Path
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from pydantic import BaseModel
@@ -7,9 +7,20 @@ from typing import Optional, List, Tuple
 
 from src.globals import init_global_textures
 from src.core import slap_comp
-from src.image import Image, COLOR_PLANE
-from src.utils import write_image
-import settings
+from src.utils import write_image, read_image, oiio_buf_to_image
+from src.settings import (
+    LIGHT,
+    SHADOW_COLOR,
+    SHADOW_INTENSITY,
+    SHADOW_LIMIT,
+    OUTLINE_THICKNESS,
+    OUTLINE_COLOR,
+    MASK_SMOOTH_WIDTH,
+    MASK_SMOOTH_HEIGHT,
+    FRACTAL_WAVE_AMPLITUDE_REL,
+    TEXTURE_BASED_AMPLITUDE_REL,
+    PAPER_SCALE,
+)
 
 # Configuration for textures, defaulting to standard paths if not set
 NOISE_DIR = os.getenv("NOISE_DIR")
@@ -18,17 +29,17 @@ PAPER_DIR = os.getenv("PAPER_DIR")
 
 class ProcessRequest(BaseModel):
     filepath: str
-    light: Optional[List[float]] = settings.LIGHT
-    shadow_color: Optional[Tuple[float, float, float]] = settings.SHADOW_COLOR
-    shadow_intensity: Optional[float] = settings.SHADOW_INTENSITY
-    shadow_limit: Optional[int] = settings.SHADOW_LIMIT
-    outline_thickness: Optional[int] = settings.OUTLINE_THICKNESS
-    outline_color: Optional[Tuple[float, float, float]] = settings.OUTLINE_COLOR
-    mask_smooth_width: Optional[int] = settings.MASK_SMOOTH_WIDTH
-    mask_smooth_height: Optional[int] = settings.MASK_SMOOTH_HEIGHT
-    fractal_wave_amplitude_rel: Optional[float] = settings.FRACTAL_WAVE_AMPLITUDE_REL
-    texture_based_amplitude_rel: Optional[float] = settings.TEXTURE_BASED_AMPLITUDE_REL
-    paper_scale: Optional[float] = settings.PAPER_SCALE
+    light: Optional[List[float]] = LIGHT
+    shadow_color: Optional[Tuple[float, float, float]] = SHADOW_COLOR
+    shadow_intensity: Optional[float] = SHADOW_INTENSITY
+    shadow_limit: Optional[int] = SHADOW_LIMIT
+    outline_thickness: Optional[int] = OUTLINE_THICKNESS
+    outline_color: Optional[Tuple[float, float, float]] = OUTLINE_COLOR
+    mask_smooth_width: Optional[int] = MASK_SMOOTH_WIDTH
+    mask_smooth_height: Optional[int] = MASK_SMOOTH_HEIGHT
+    fractal_wave_amplitude_rel: Optional[float] = FRACTAL_WAVE_AMPLITUDE_REL
+    texture_based_amplitude_rel: Optional[float] = TEXTURE_BASED_AMPLITUDE_REL
+    paper_scale: Optional[float] = PAPER_SCALE
 
 
 @asynccontextmanager
@@ -42,26 +53,16 @@ app = FastAPI(lifespan=lifespan)
 
 
 def process_image_file(input_path, **kwargs):
-    # Run the pipeline logic
-    img = Image.read(input_path)
-    final_gamma_buffer = slap_comp(img)
 
-    # Prepare the output image
-    final_img = Image(
-        {
-            COLOR_PLANE: {
-                "pixels": final_gamma_buffer.get_pixels(oiio.FLOAT),
-                "channel_names": ["R", "G", "B", "A"],
-            }
-        }
+    img = read_image(input_path)
+    final_gamma_buffer = slap_comp(img, **kwargs)
+
+    output_path = str(Path(input_path).with_suffix(".png"))
+    write_image(
+        output_path,
+        oiio_buf_to_image(final_gamma_buffer),
     )
 
-    # 4) server save file to the same location with other extension
-    base, _ = os.path.splitext(input_path)
-    output_path = f"{base}.png"
-    write_image(output_path, final_img)
-
-    # 5) server respond with created file filepath
     return output_path
 
 

@@ -6,7 +6,7 @@ from src.noise import (
     fractal_wave_noise,
     texture_based_noise,
 )
-from settings import (
+from src.settings import (
     FRACTAL_WAVE_AMPLITUDE_REL,
     TEXTURE_BASED_AMPLITUDE_REL,
     LIGHT,
@@ -15,77 +15,54 @@ from settings import (
 from src.utils import (
     desaturate_pixels,
     calculate_shadow_params,
-    array_to_oiio_buf,
-    oiio_buf_to_array,
 )
 
 
-LIGHT_VECTOR = np.array(LIGHT, dtype=np.float32)
-
-# Ensure it's a unit vector (length of 1) for clean math
-LIGHT_VECTOR /= np.linalg.norm(LIGHT_VECTOR)
-
-
-def smooth_mask(mask, width=5, height=5):
+def smooth_mask(mask_buf: oiio.ImageBuf, width=5, height=5) -> oiio.ImageBuf:
     """
-    Smooths a binary or grayscale mask using a median filter.
-    Expects a 2D numpy array (height, width).
+    Accepts an ImageBuf, runs the filter entirely in C++,
+    and returns a brand new ImageBuf. Zero RAM copying back to Python!
     """
-    height_px, width_px = mask.shape
-
-    spec = oiio.ImageSpec(width_px, height_px, 1, oiio.FLOAT)
-    mask_buf = oiio.ImageBuf(spec)
-
-    roi = oiio.ROI(0, width_px, 0, height_px)
-    mask_buf.set_pixels(roi, mask.astype(np.float32).flatten())
-
     median_mask = oiio.ImageBuf()
     oiio.ImageBufAlgo.median_filter(median_mask, mask_buf, width=width, height=height)
-
-    return median_mask.get_pixels(oiio.FLOAT).reshape(height_px, width_px)
+    return median_mask
 
 
 def add_shadow_to_a_layer(
-    pixels,
+    color_buf: oiio.ImageBuf,
     shadow_color=(0.0, 0.0, 0.0),
     shadow_intensity=0.5,
-):
-    """Adds a soft customizable shadow to a layer using OpenImageIO ImageBufAlgo.
-
+    light_vec=LIGHT,
+) -> oiio.ImageBuf:
+    """Adds a soft customizable shadow to an image layer entirely inside OpenImageIO.
+    Utilizes 3x3 matrix warping for sub-pixel precision spatial translation.
     Parameters:
-    - pixels (np.ndarray): Input image array (RGB or RGBA).
-    - offset (tuple): (y_offset, x_offset) in pixels to shift the shadow.
-    - blur_radius (float): Softness of the shadow.
-    - shadow_color (tuple): (R, G, B) normalized color of the shadow (e.g., (0,0,0) for black).
+    - color_buf (oiio.ImageBuf): Input image buffer (RGBA).
+    - shadow_color (tuple): (R, G, B) normalized color of the shadow.
     - shadow_intensity (float): Max opacity of the shadow (0.0 to 1.0).
+    Returns:
+    - oiio.ImageBuf: The final alpha-composited layer with the shadow underneath.
     """
     from src.globals import textures
 
     if textures is None:
         raise RuntimeError("Global textures were never initialized!")
 
-    fg_buf, spec, height, width, alpha = array_to_oiio_buf(pixels)
+    spec = color_buf.spec()
 
-    offset, blur_radius = calculate_shadow_params(LIGHT_VECTOR)
+    # Ensure it's a unit vector (length of 1) for clean math
+    lv = np.array(LIGHT, dtype=np.float32)
+    lv /= np.linalg.norm(lv)
+
+    offset, blur_radius = calculate_shadow_params(lv)
     y_off, x_off = offset
-    y_off = int(np.round(y_off))
-    x_off = int(np.round(x_off))
-    shifted_alpha = np.roll(alpha, shift=(y_off, x_off), axis=(0, 1))
 
-    if y_off > 0:
-        shifted_alpha[:y_off, :] = 0
-    elif y_off < 0:
-        shifted_alpha[y_off:, :] = 0
+    mask_buf = oiio.ImageBuf()
+    oiio.ImageBufAlgo.channels(mask_buf, color_buf, channelorder=(3, 3, 3, 3))
 
-    if x_off > 0:
-        shifted_alpha[:, :x_off] = 0
-    elif x_off < 0:
-        shifted_alpha[:, x_off:] = 0
+    M = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, x_off, y_off, 1.0)
 
-    rgba_mask_pixels = np.concatenate([shifted_alpha] * 4, axis=2)
-
-    shadow_mask_buf = oiio.ImageBuf(spec)
-    shadow_mask_buf.set_pixels(oiio.ROI(0, width, 0, height), rgba_mask_pixels)
+    shadow_mask_buf = oiio.ImageBufAlgo.warp(mask_buf, M, filtername="", wrap="default")
 
     shadow_mask_buf = add_noise_to_plane(
         shadow_mask_buf,
@@ -95,7 +72,7 @@ def add_shadow_to_a_layer(
 
     if blur_radius > 0:
         K = oiio.ImageBufAlgo.make_kernel("gaussian", blur_radius, blur_radius)
-        blurred_shadow_mask = oiio.ImageBuf(spec)
+        blurred_shadow_mask = oiio.ImageBuf()
         oiio.ImageBufAlgo.convolve(blurred_shadow_mask, shadow_mask_buf, K)
     else:
         blurred_shadow_mask = shadow_mask_buf
@@ -107,31 +84,23 @@ def add_shadow_to_a_layer(
         amplitude=TEXTURE_BASED_AMPLITUDE_REL,
     )
 
-    shadow_color_buf = oiio.ImageBuf(spec)
+    shadow_color_buf = oiio.ImageBuf()
+    fill_color = (0.0, 0.9, 0.9, shadow_intensity)
+    oiio.ImageBufAlgo.fill(shadow_color_buf, fill_color, roi=spec.roi)
 
-    fill_color = (
-        shadow_color[0],
-        shadow_color[1],
-        shadow_color[2],
-        shadow_intensity,
-    )
-    oiio.ImageBufAlgo.fill(shadow_color_buf, fill_color)
-
-    shadow_final = oiio.ImageBuf(spec)
+    shadow_final = oiio.ImageBuf()
     oiio.ImageBufAlgo.mul(shadow_final, shadow_color_buf, blurred_shadow_mask)
 
-    final_composite = oiio.ImageBuf(spec)
-    oiio.ImageBufAlgo.over(final_composite, shadow_final, final_composite)
-    oiio.ImageBufAlgo.over(final_composite, fg_buf, final_composite)
-
-    return oiio_buf_to_array(final_composite)
+    final_composite = oiio.ImageBuf()
+    oiio.ImageBufAlgo.over(final_composite, color_buf, shadow_final)
+    return final_composite
 
 
 def add_outline_to_layer(
-    pixels,
+    color_buf: oiio.ImageBuf,
     outline_thickness=5,
     outline_color=(1.0, 1.0, 1.0),
-):
+) -> oiio.ImageBuf:
     """
     Adds an outline using a clean mask-first approach:
     1. Extract a solid binary mask from the layer's alpha.
@@ -143,28 +112,28 @@ def add_outline_to_layer(
 
     if textures is None:
         raise RuntimeError("Global textures were never initialized!")
-    orig_buf, spec, height, width, alpha = array_to_oiio_buf(pixels)
 
-    mask_buf = oiio.ImageBuf(spec)
-    mask_buf.set_pixels(
-        oiio.ROI(0, width, 0, height), np.concatenate([alpha] * 4, axis=2)
-    )
+    spec = color_buf.spec()
+
+    mask_buf = oiio.ImageBuf()
+    oiio.ImageBufAlgo.channels(mask_buf, color_buf, channelorder=(3, 3, 3, 3))
 
     if outline_thickness > 0:
         eroded_mask = oiio.ImageBufAlgo.erode(mask_buf, width=outline_thickness)
 
-        eroded_fg_buf = oiio.ImageBuf(spec)
-        oiio.ImageBufAlgo.mul(eroded_fg_buf, orig_buf, eroded_mask)
+        eroded_fg_buf = oiio.ImageBuf()
+        oiio.ImageBufAlgo.mul(eroded_fg_buf, color_buf, eroded_mask)
         fg_to_composite = eroded_fg_buf
 
         base_for_dilation = eroded_mask
     else:
-        fg_to_composite = orig_buf
+        fg_to_composite = color_buf
         base_for_dilation = mask_buf
 
-    K = oiio.ImageBufAlgo.make_kernel("gaussian", 5, 5)
     dilated_mask = oiio.ImageBufAlgo.dilate(base_for_dilation, width=outline_thickness)
-    blurred_shadow_mask = oiio.ImageBuf(spec)
+
+    K = oiio.ImageBufAlgo.make_kernel("gaussian", 5, 5)
+    blurred_shadow_mask = oiio.ImageBuf()
     oiio.ImageBufAlgo.convolve(blurred_shadow_mask, dilated_mask, K)
 
     blurred_shadow_mask = add_noise_to_plane(
@@ -175,22 +144,25 @@ def add_outline_to_layer(
     )
 
     outline_buf = oiio.ImageBuf(spec)
-    oiio.ImageBufAlgo.fill(outline_buf, (*outline_color, 1.0))
+    oiio.ImageBufAlgo.fill(outline_buf, (*outline_color, 1.0), roi=spec.roi)
     oiio.ImageBufAlgo.mul(outline_buf, outline_buf, blurred_shadow_mask)
 
-    final_composite = oiio.ImageBuf(spec)
+    final_composite = oiio.ImageBuf()
     oiio.ImageBufAlgo.over(final_composite, fg_to_composite, outline_buf)
 
-    return oiio_buf_to_array(final_composite)
+    return final_composite
 
 
-def apply_paper(pixels, strength=1):
+def apply_paper(color_buf: oiio.ImageBuf, strength=1.0) -> oiio.ImageBuf:
     from src.globals import textures
 
     if textures is None:
         raise RuntimeError("Global textures were never initialized!")
+
+    pixels = color_buf.get_pixels(format=oiio.FLOAT)
+    height, width, _ = pixels.shape
+
     pixels = desaturate_pixels(pixels)
-    orig_buf, spec, height, width, alpha = array_to_oiio_buf(pixels)
 
     tex_buf = textures.paper()
     texture_raw = tex_buf.get_pixels(format=oiio.FLOAT)
@@ -218,12 +190,14 @@ def apply_paper(pixels, strength=1):
     else:
         bg_paper = bg_paper[:, :, :3]
 
+    alpha = pixels[:, :, 3:4]
     fg_rgb = pixels[:, :, :3]
+
     paper_look = fg_rgb * bg_paper
     blended_rgb = (strength * paper_look) + ((1.0 - strength) * fg_rgb)
     final_rgb = blended_rgb * alpha + bg_paper * (1.0 - alpha)
+
     final_rgba = np.concatenate([final_rgb, alpha], axis=2)
 
-    final_composite = oiio.ImageBuf(spec)
-    final_composite.set_pixels(oiio.ROI(0, width, 0, height), final_rgba)
-    return oiio_buf_to_array(final_composite)
+    output_buf = oiio.ImageBuf(final_rgba.astype(np.float32, copy=False))
+    return output_buf
