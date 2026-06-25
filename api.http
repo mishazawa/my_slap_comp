@@ -1,10 +1,1 @@
-# ai! rewrite this request to conform with new API signature
-
-POST http://localhost:8000/process/
-Content-Type: multipart/form-data; boundary=boundary
-
---boundary
-Content-Disposition: form-data; name="file"; filename="0001.exr"
-
-< ./test_data/0001.exr
---boundary--
+POST http://localhost:8000/process/?filepath=./test_data/0001.exr
