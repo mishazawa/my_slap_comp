@@ -19,10 +19,16 @@ from src.crypto import (
 from src.settings import EXECUTOR_THREAD, EXECUTOR_SEQUENCE
 
 
-def _create_mask_buf(img, crypto_id, target_hash):
-    return oiio.ImageBuf(
-        decode_cryptomatte(img, crypto_id, target_hash).astype(np.float32, copy=False)
-    )
+def create_mask_buf(img, crypto_id, target_hash):
+    raw_mask = decode_cryptomatte(img, crypto_id, target_hash)
+
+    height, width = raw_mask.shape[:2]
+    mask_rgba = np.zeros((height, width, 4), dtype=np.float32)
+
+    mask_bool = raw_mask > 0
+    mask_rgba[mask_bool] = 1.0
+
+    return oiio.ImageBuf(mask_rgba)
 
 
 def process_pass(
@@ -36,16 +42,22 @@ def process_pass(
     outline_color,
     shadow_color,
     shadow_intensity,
+    light_vector,
 ):
-    src = ensure_rgba_buf(color_plane["pixels"])
 
-    mask = _create_mask_buf(img, crypto_id, target_hash)
+    mask = create_mask_buf(img, crypto_id, target_hash)
     mask = smooth_mask(mask, mask_smooth_width, mask_smooth_height)
 
-    a = get_masked_pixels(src, mask)
-    a = apply_paper(a)
+    a = ensure_rgba_buf(color_plane["pixels"])
+    a = get_masked_pixels(a, mask)
+    # a = apply_paper(a)
     a = add_outline(a, outline_thickness)
-    a = add_shadow(a, shadow_intensity)
+    a = add_shadow(
+        a,
+        shadow_color=shadow_color,
+        shadow_intensity=shadow_intensity,
+        light_vector=light_vector,
+    )
 
     return a
 
@@ -55,6 +67,7 @@ def _run_pass_helper(task_tuple, img, color_plane, **kwargs):
     return process_pass(img, color_plane, crypto_id, target_hash, **kwargs)
 
 
+# ai! make it **kwargs
 def slap_comp(
     img,
     shadow_color,
@@ -63,6 +76,7 @@ def slap_comp(
     outline_color,
     mask_smooth_width,
     mask_smooth_height,
+    light_vector,
     executor_type=EXECUTOR_THREAD,
 ):
     crypto_passes = list_cryptopass(img)
@@ -102,6 +116,7 @@ def slap_comp(
         outline_color=outline_color,
         shadow_color=shadow_color,
         shadow_intensity=shadow_intensity,
+        light_vector=light_vector,
     )
 
     processed_layers = []
