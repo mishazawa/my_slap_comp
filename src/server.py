@@ -48,7 +48,10 @@ async def process_image(file: UploadFile):
     content = await file.read()
     input_buffer = io.BytesIO(content)
 
-    # Process in memory
+    # ai: this is not work. let's rewrite logic:
+    # - endpoint accept filepath
+    # - process_image_file use this path to open image in oiio way
+    # ai!
     image_bytes = process_image_file(input_buffer)
 
     return Response(content=image_bytes, media_type="image/png")
