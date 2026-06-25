@@ -28,11 +28,11 @@ def smooth_mask(mask_buf: oiio.ImageBuf, width=5, height=5) -> oiio.ImageBuf:
     return median_mask
 
 
-def add_shadow_to_a_layer(
+def add_shadow(
     color_buf: oiio.ImageBuf,
     shadow_color=(0.0, 0.0, 0.0),
     shadow_intensity=0.5,
-    light_vec=LIGHT,
+    light_vector=LIGHT,
 ) -> oiio.ImageBuf:
     """Adds a soft customizable shadow to an image layer entirely inside OpenImageIO.
     Utilizes 3x3 matrix warping for sub-pixel precision spatial translation.
@@ -51,7 +51,7 @@ def add_shadow_to_a_layer(
     spec = color_buf.spec()
 
     # Ensure it's a unit vector (length of 1) for clean math
-    lv = np.array(LIGHT, dtype=np.float32)
+    lv = np.array(light_vector, dtype=np.float32)
     lv /= np.linalg.norm(lv)
 
     offset, blur_radius = calculate_shadow_params(lv)
@@ -85,7 +85,7 @@ def add_shadow_to_a_layer(
     )
 
     shadow_color_buf = oiio.ImageBuf()
-    fill_color = (0.0, 0.9, 0.9, shadow_intensity)
+    fill_color = shadow_color + (shadow_intensity,)
     oiio.ImageBufAlgo.fill(shadow_color_buf, fill_color, roi=spec.roi)
 
     shadow_final = oiio.ImageBuf()
@@ -96,7 +96,7 @@ def add_shadow_to_a_layer(
     return final_composite
 
 
-def add_outline_to_layer(
+def add_outline(
     color_buf: oiio.ImageBuf,
     outline_thickness=5,
     outline_color=(1.0, 1.0, 1.0),

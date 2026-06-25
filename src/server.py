@@ -29,7 +29,6 @@ PAPER_DIR = os.getenv("PAPER_DIR")
 
 class ProcessRequest(BaseModel):
     filepath: str
-    light: Optional[List[float]] = LIGHT
     shadow_color: Optional[Tuple[float, float, float]] = SHADOW_COLOR
     shadow_intensity: Optional[float] = SHADOW_INTENSITY
     shadow_limit: Optional[int] = SHADOW_LIMIT
@@ -40,6 +39,7 @@ class ProcessRequest(BaseModel):
     fractal_wave_amplitude_rel: Optional[float] = FRACTAL_WAVE_AMPLITUDE_REL
     texture_based_amplitude_rel: Optional[float] = TEXTURE_BASED_AMPLITUDE_REL
     paper_scale: Optional[float] = PAPER_SCALE
+    light_vector: Optional[List[float]] = LIGHT
 
 
 @asynccontextmanager

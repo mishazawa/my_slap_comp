@@ -50,7 +50,7 @@ def process_pass(
 
     a = ensure_rgba_buf(color_plane["pixels"])
     a = get_masked_pixels(a, mask)
-    # a = apply_paper(a)
+    a = get_masked_pixels(apply_paper(a), mask)
     a = add_outline(a, outline_thickness)
     a = add_shadow(
         a,

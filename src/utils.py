@@ -98,28 +98,9 @@ def hex_to_float32(hex_str: str) -> float:
 def get_masked_pixels(
     color_buf: oiio.ImageBuf, mask_buf: oiio.ImageBuf
 ) -> oiio.ImageBuf:
-    """
-    Returns an RGBA ImageBuf where the masked region is extracted from color_buf.
-    Both inputs are expected to be OpenImageIO ImageBuf objects.
-    """
-    # 1. Multiply color pixels by mask opacity
-    masked_color = oiio.ImageBuf()
-    oiio.ImageBufAlgo.mul(masked_color, color_buf, mask_buf)
 
-    # 2. Isolate just the R, G, B channels from your multiplied result
-    # Python syntax expects an explicit tuple of channels to copy or reorder
-    rgb_only = oiio.ImageBufAlgo.channels(masked_color, (0, 1, 2))
-
-    # 3. Force your grayscale mask_buf into a single channel buffer
-    # Just in case mask_buf was initialized with 4 channels elsewhere
-    alpha_only = oiio.ImageBufAlgo.channels(mask_buf, (0,))
-
-    # 4. Append the alpha channel onto the back of the RGB channels
-    # This automatically builds a perfect 4-channel RGBA output image
-    result = oiio.ImageBuf()
-    oiio.ImageBufAlgo.channel_append(result, rgb_only, alpha_only)
-
-    return result
+    oiio.ImageBufAlgo.mul(color_buf, color_buf, mask_buf)
+    return color_buf
 
 
 def desaturate_pixels(pixels, factor=0.15):
@@ -159,11 +140,10 @@ def desaturate_pixels(pixels, factor=0.15):
 def calculate_shadow_params(light_vec, max_shadow_distance=SHADOW_LIMIT):
     lx, ly, lz = light_vec
 
-    # FIX: Use np.maximum instead of the shadowed max() function
     shadow_multiplier = max_shadow_distance / np.maximum(lz, 0.01)
 
-    offset_x = -lx * shadow_multiplier
-    offset_y = -ly * shadow_multiplier
+    offset_x = float(-lx * shadow_multiplier)
+    offset_y = float(-ly * shadow_multiplier)
 
     # Blur radius can naturally increase if the shadow gets longer
     blur_radius = 2.0 + (shadow_multiplier * 0.5)

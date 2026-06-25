@@ -1,5 +1,4 @@
 import pytest
-import os
 from pathlib import Path
 from src.utils import read_image, write_image, oiio_buf_to_image
 from src.crypto import decode_cryptomatte, list_cryptopass
@@ -51,13 +50,14 @@ def test_slap_comp_execution(mock_image, tmp_path):
     # Run slap_comp
     final_gamma_buffer = slap_comp(
         mock_image,
+        light_vector=settings.LIGHT,
         shadow_color=settings.SHADOW_COLOR,
         shadow_intensity=settings.SHADOW_INTENSITY,
         outline_thickness=settings.OUTLINE_THICKNESS,
         outline_color=settings.OUTLINE_COLOR,
         mask_smooth_width=settings.MASK_SMOOTH_WIDTH,
         mask_smooth_height=settings.MASK_SMOOTH_HEIGHT,
-        executor_type=settings.EXECUTOR_SEQUENCE,
+        executor_type=settings.EXECUTOR_THREAD,
     )
 
     # Define output path
