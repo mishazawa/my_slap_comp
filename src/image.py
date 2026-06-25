@@ -17,10 +17,10 @@ class Image:
         self._subimages = subimages
 
     @classmethod
-    def read(cls, filepath):
-        inp = oiio.ImageInput.open(filepath)
+    def read(cls, data):
+        inp = oiio.ImageInput.open(data)
         if not inp:
-            raise FileNotFoundError(f"Could not open file: {filepath}")
+            raise FileNotFoundError(f"Could not open image source: {data}")
 
         subimages = {}
         subimage_idx = 0

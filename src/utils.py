@@ -1,6 +1,7 @@
 import struct
 import OpenImageIO as oiio
 import numpy as np
+import io
 from src.image import Image
 from settings import SHADOW_LIMIT
 
@@ -30,6 +31,36 @@ def write_image(filepath, image):
     output_file.open(filepath, spec)
     output_file.write_image(plane["pixels"])
     output_file.close()
+
+
+def supports_ioproxy(format_extension):
+    """Checks if OIIO supports ioproxy for a given format."""
+    out = oiio.ImageOutput.create(f"test.{format_extension}")
+    if not out:
+        return False
+    return out.supports("ioproxy")
+
+
+def write_image_to_buffer(image, format_extension="png"):
+    """Writes an Image object to a memory buffer."""
+    if not supports_ioproxy(format_extension):
+        raise RuntimeError(f"Format {format_extension} does not support ioproxy")
+
+    plane_name = next(iter(image.subimages))
+    plane = image.get_plane(plane_name)
+
+    height, width, channels = plane["pixels"].shape
+    spec = oiio.ImageSpec(width, height, channels, oiio.FLOAT)
+    spec.channelnames = plane["channel_names"]
+
+    buffer = io.BytesIO()
+    
+    out = oiio.ImageOutput.create(f"out.{format_extension}")
+    out.open(buffer, spec)
+    out.write_image(plane["pixels"])
+    out.close()
+    
+    return buffer.getvalue()
 
 
 def list_image_planes(image):
