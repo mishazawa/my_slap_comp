@@ -1,12 +1,12 @@
 import os
 import OpenImageIO as oiio
-from fastapi import FastAPI, Response
+from fastapi import FastAPI
 from contextlib import asynccontextmanager
 
 from src.globals import init_global_textures
 from src.core import slap_comp
 from src.image import Image, COLOR_PLANE
-from src.utils import write_image_to_buffer
+from src.utils import write_image
 
 # Configuration for textures, defaulting to standard paths if not set
 NOISE_DIR = os.getenv("NOISE_DIR")
@@ -38,18 +38,18 @@ def process_image_file(input_path):
         }
     )
 
-    # ai! this doesn't work. let's rewrite server and writing file logic as following:
-    # 1) user sends filepath
-    # 2) server opens this file (assuming client and server on the same system)
-    # 3) server run processing
     # 4) server save file to the same location with other extension
+    base, _ = os.path.splitext(input_path)
+    output_path = f"{base}.png"
+    write_image(output_path, final_img)
+
     # 5) server respond with created file filepath
-    return write_image_to_buffer(final_img, format_extension="png")
+    return output_path
 
 
 @app.post("/process/")
 async def process_image(filepath: str):
     # Process using the file path
-    image_bytes = process_image_file(filepath)
+    output_path = process_image_file(filepath)
 
-    return Response(content=image_bytes, media_type="image/png")
+    return {"output_path": output_path}
