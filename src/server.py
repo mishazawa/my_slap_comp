@@ -10,8 +10,9 @@ from src.image import Image, COLOR_PLANE
 from src.utils import write_image
 
 # Configuration for textures, defaulting to standard paths if not set
-NOISE_DIR = os.getenv("NOISE_DIR", "assets/noise")
-PAPER_DIR = os.getenv("PAPER_DIR", "assets/paper")
+NOISE_DIR = os.getenv("NOISE_DIR")
+PAPER_DIR = os.getenv("PAPER_DIR")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -19,13 +20,15 @@ async def lifespan(app: FastAPI):
     init_global_textures(NOISE_DIR, PAPER_DIR)
     yield
 
+
 app = FastAPI(lifespan=lifespan)
+
 
 def process_image_file(input_path, output_path):
     # Run the pipeline logic
     img = Image.read(input_path)
     final_gamma_buffer = slap_comp(img)
-    
+
     # Prepare the output image
     final_img = Image(
         {
@@ -35,14 +38,15 @@ def process_image_file(input_path, output_path):
             }
         }
     )
-    
+
     write_image(output_path, final_img)
+
 
 @app.post("/process/")
 async def process_image(file: UploadFile):
     # Read uploaded file content
     content = await file.read()
-    
+
     # Use a temporary file for processing as the pipeline expects a file path
     with tempfile.NamedTemporaryFile(suffix=".exr", delete=False) as tmp_in:
         tmp_in.write(content)
@@ -53,15 +57,15 @@ async def process_image(file: UploadFile):
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_out:
             output_path = tmp_out.name
             process_image_file(input_path, output_path)
-            
+
         with open(output_path, "rb") as f:
             image_bytes = f.read()
-            
+
         # Clean up output temp file
         os.remove(output_path)
-        
+
         return Response(content=image_bytes, media_type="image/png")
-        
+
     finally:
         # Clean up input temp file
         if os.path.exists(input_path):
