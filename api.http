@@ -1,8 +1,8 @@
-### adapt this call for api endpoint from server.py ai!
-POST http://localhost:8082/setblock
-Authorization: Basic user:password
-content-type: application/octet-stream
-X-Payload-Type: csv
-X-World-Name: world
+POST http://localhost:8000/process/
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="file"; filename="0001.exr"
 
 < ./test_data/0001.exr
+--boundary--
