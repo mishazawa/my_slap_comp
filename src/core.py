@@ -5,8 +5,8 @@ from functools import partial
 
 from src.image import COLOR_PLANE, DEPTH_PLANE
 from src.ops import (
-    add_shadow_to_a_layer,
-    add_outline_to_layer,
+    add_outline,
+    add_shadow,
     apply_paper,
     smooth_mask,
 )
@@ -31,18 +31,20 @@ def process_pass(
     shadow_color,
     shadow_intensity,
 ):
-    # ai! i want to write this like chain of calls a().then(b).then(c)
-    # and pass args like here.
-    raw_mask = decode_cryptomatte(img, crypto_id, target_hash)
-    mask_buf = oiio.ImageBuf(raw_mask.astype(np.float32, copy=False))
-    color_buf = ensure_rgba_buf(color_plane["pixels"])
-    smoothed_mask = smooth_mask(mask_buf, mask_smooth_width, mask_smooth_height)
-    layer = get_masked_pixels(color_buf, smoothed_mask)
-    layer = apply_paper(layer)
-    outlined_layer = add_outline_to_layer(layer, outline_thickness)
-    shadowed_buf = add_shadow_to_a_layer(outlined_layer, shadow_intensity)
+    src = ensure_rgba_buf(color_plane["pixels"])
 
-    return shadowed_buf
+    # ai! make utility function from this
+    mask = oiio.ImageBuf(
+        decode_cryptomatte(img, crypto_id, target_hash).astype(np.float32, copy=False)
+    )
+    mask = smooth_mask(mask, mask_smooth_width, mask_smooth_height)
+
+    a = get_masked_pixels(src, mask)
+    a = apply_paper(a)
+    a = add_outline(a, outline_thickness)
+    a = add_shadow(a, shadow_intensity)
+
+    return a
 
 
 def _run_pass_helper(task_tuple, img, color_plane, **kwargs):
