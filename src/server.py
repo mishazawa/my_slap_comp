@@ -44,7 +44,7 @@ def process_image_file(input_path):
 
 
 @app.post("/process/")
-async def process_image(file: UploadFile):
+async def process_image(filepath: str):  # ai! rewrite endpoint accept file path
     # Save uploaded file to a temporary file
     with tempfile.NamedTemporaryFile(delete=False, suffix=".exr") as tmp:
         shutil.copyfileobj(file.file, tmp)
