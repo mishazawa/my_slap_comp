@@ -21,6 +21,23 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+def process_image_file(input_path, output_path):
+    # Run the pipeline logic
+    img = Image.read(input_path)
+    final_gamma_buffer = slap_comp(img)
+    
+    # Prepare the output image
+    final_img = Image(
+        {
+            COLOR_PLANE: {
+                "pixels": final_gamma_buffer.get_pixels(oiio.FLOAT),
+                "channel_names": ["R", "G", "B", "A"],
+            }
+        }
+    )
+    
+    write_image(output_path, final_img)
+
 @app.post("/process/")
 async def process_image(file: UploadFile):
     # Read uploaded file content
@@ -32,24 +49,10 @@ async def process_image(file: UploadFile):
         input_path = tmp_in.name
 
     try:
-        # Run the pipeline logic
-        img = Image.read(input_path)
-        final_gamma_buffer = slap_comp(img)
-        
-        # Prepare the output image
-        final_img = Image(
-            {
-                COLOR_PLANE: {
-                    "pixels": final_gamma_buffer.get_pixels(oiio.FLOAT),
-                    "channel_names": ["R", "G", "B", "A"],
-                }
-            }
-        )
-        
         # Write to a temporary file to capture the output bytes
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_out:
-            write_image(tmp_out.name, final_img)
             output_path = tmp_out.name
+            process_image_file(input_path, output_path)
             
         with open(output_path, "rb") as f:
             image_bytes = f.read()

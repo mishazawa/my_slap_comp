@@ -1,14 +1,9 @@
-import sys
 import os
 import argparse
 
-import OpenImageIO as oiio
 from src.globals import init_global_textures
-from src.core import slap_comp
-from src.image import Image, COLOR_PLANE
-from src.utils import write_image
+from server import process_image_file
 
-# ai: rewrite this file to use of server.py ai!
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Run the compositing pipeline on an EXR image."
@@ -33,23 +28,10 @@ if __name__ == "__main__":
 
     init_global_textures(args.noise_dir, args.paper_dir)
 
-    input_path = sys.argv[1]
+    input_path = args.input_path
 
     base_name = os.path.splitext(input_path)[0]
     output_path = f"{base_name}.png"
 
-    img = Image.read(input_path)
-    final_gamma_buffer = slap_comp(img)
-
-    write_image(
-        output_path,
-        Image(
-            {
-                COLOR_PLANE: {
-                    "pixels": final_gamma_buffer.get_pixels(oiio.FLOAT),
-                    "channel_names": ["R", "G", "B", "A"],
-                }
-            }
-        ),
-    )
+    process_image_file(input_path, output_path)
     print(f"Saved masked image to {output_path}")
