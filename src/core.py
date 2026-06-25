@@ -67,18 +67,7 @@ def _run_pass_helper(task_tuple, img, color_plane, **kwargs):
     return process_pass(img, color_plane, crypto_id, target_hash, **kwargs)
 
 
-# ai! make it **kwargs
-def slap_comp(
-    img,
-    shadow_color,
-    shadow_intensity,
-    outline_thickness,
-    outline_color,
-    mask_smooth_width,
-    mask_smooth_height,
-    light_vector,
-    executor_type=EXECUTOR_THREAD,
-):
+def slap_comp(img, executor_type=EXECUTOR_THREAD, **kwargs):
     crypto_passes = list_cryptopass(img)
 
     color_plane = img.get_plane(COLOR_PLANE)
@@ -110,13 +99,7 @@ def slap_comp(
         _run_pass_helper,
         img=img,
         color_plane=color_plane,
-        mask_smooth_width=mask_smooth_width,
-        mask_smooth_height=mask_smooth_height,
-        outline_thickness=outline_thickness,
-        outline_color=outline_color,
-        shadow_color=shadow_color,
-        shadow_intensity=shadow_intensity,
-        light_vector=light_vector,
+        **kwargs,
     )
 
     processed_layers = []
