@@ -19,6 +19,12 @@ from src.crypto import (
 from src.settings import EXECUTOR_THREAD, EXECUTOR_SEQUENCE
 
 
+def _create_mask_buf(img, crypto_id, target_hash):
+    return oiio.ImageBuf(
+        decode_cryptomatte(img, crypto_id, target_hash).astype(np.float32, copy=False)
+    )
+
+
 def process_pass(
     img,
     color_plane,
@@ -33,10 +39,7 @@ def process_pass(
 ):
     src = ensure_rgba_buf(color_plane["pixels"])
 
-    # ai! make utility function from this
-    mask = oiio.ImageBuf(
-        decode_cryptomatte(img, crypto_id, target_hash).astype(np.float32, copy=False)
-    )
+    mask = _create_mask_buf(img, crypto_id, target_hash)
     mask = smooth_mask(mask, mask_smooth_width, mask_smooth_height)
 
     a = get_masked_pixels(src, mask)
