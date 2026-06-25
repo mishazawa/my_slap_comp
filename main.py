@@ -8,6 +8,7 @@ from src.core import slap_comp
 from src.image import Image, COLOR_PLANE
 from src.utils import write_image
 
+# ai: rewrite this file to use of server.py ai!
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Run the compositing pipeline on an EXR image."

@@ -12,7 +12,7 @@ run:
 	uv run main.py $(INPUT_FILE) -p $(PAPER_DIR) -n $(NOISE_DIR)
 
 aider:
-	headroom wrap aider
+	headroom wrap aider --watch-files --config .aider.conf.yml
 
 seq:
 	@echo "Processing EXR files in '$(INPUT_DIR)'..."

@@ -1,52 +1,24 @@
-# Project Instructions
-- We are using OpenImageIO for python.
-
-# lean-ctx — Token Optimization for Pi
-
-This project uses the **pi-lean-ctx** extension. It exposes `ctx_*` tools backed by **lean-ctx**,
-and runs an embedded MCP bridge (on by default) that holds a **persistent session cache**.
-
-## What to do (as Pi agent)
-
-Prefer the `ctx_*` tools over Pi's built-ins — only the `ctx_*` tools are compressed and cached;
-the native `read`/`bash`/`grep`/`find`/`ls` are **not** routed through lean-ctx in additive mode.
-
-| Prefer | Over (native) | Why |
-|--------|---------------|-----|
-| `ctx_read` | `read`, `cat`/`head`/`tail` | Cached + compressed; unchanged re-reads cost ~13 tokens |
-| `ctx_shell` | `bash` | Shell output compressed via 95+ patterns |
-| `ctx_grep` | `grep` | Compact, ranked matches |
-| `ctx_find` | `find` | Compressed, .gitignore-aware |
-| `ctx_ls` | `ls` | Compact directory maps |
-
-- Use `ctx_shell` for commands with side effects (build/test/git/etc.); set `raw=true` when exact
-  output matters.
-- Use `ctx_read` with `mode=full` for files you will edit. For line ranges pass `offset`/`limit`
-  (aliases of `start_line`) or `mode=lines:N-M` — all cached through the bridge, so repeated reads
-  stay cheap.
-
-## Advanced lean-ctx commands
-
-Prefer the `lean_ctx` tool (installed by the extension) to run `lean-ctx` directly:
-
-- `lean-ctx overview`
-- `lean-ctx session …`
-- `lean-ctx knowledge …`
-- `lean-ctx gain` / `lean-ctx stats`
-- `lean-ctx index …`
-
-## MCP bridge
-
-The embedded bridge is on by default and shows up in `/lean-ctx` (it reports `connected` plus a
-tool count). To force the one-shot CLI path (no cross-call cache), set `LEAN_CTX_PI_ENABLE_MCP=0`.
-
-<!-- lean-ctx -->
-## lean-ctx
-
-Prefer lean-ctx MCP tools over native equivalents for token savings:
-`ctx_read` > Read/cat, `ctx_search` > Grep/rg, `ctx_shell` > bash, `ctx_tree` > ls/find.
-Native Edit/Write/Glob stay as-is; use `ctx_edit` only when Edit needs an unavailable Read.
-Full rules: LEAN-CTX.md (open on demand — do not auto-load).
-<!-- /lean-ctx -->
-
-
+When writing code, you MUST follow these principles:
+- Code should be easy to read and understand.
+- Keep the code as simple as possible. Avoid unnecessary complexity.
+- Use meaningful names for variables, functions, etc. Names should reveal
+  intent.
+- Functions should be small and do one thing well. They should not exceed a few
+  lines.
+- Function names should describe the action being performed.
+- Prefer fewer arguments in functions. Ideally, aim for no more than two or
+  three.
+- Only use comments when necessary, as they can become outdated. Instead, strive
+  to make the code self-explanatory.
+- When comments are used, they should add useful information that is not readily
+  apparent from the code itself.
+- Properly handle errors and exceptions to ensure the software's robustness.
+- Use exceptions rather than error codes for handling errors.
+- Consider security implications of the code. Implement security best practices
+  to protect against vulnerabilities and attacks.
+- Adhere to these 4 principles of Functional Programming:
+  1. Pure Functions
+  2. Immutability
+  3. Function Composition
+  4. Declarative Code
+- By default, do not use object oriented programming.
