@@ -13,10 +13,10 @@ def map_hip_to_working_dir(filepath: str) -> str:
     return filepath
 
 
-def map_working_dir_to_hip(filepath: str) -> str:
+def map_working_dir_to_pdg(filepath: str) -> str:
     working_dir = os.getenv("WORKING_DIR", "/app/working_dir")
     if filepath.startswith(working_dir):
-        return filepath.replace(working_dir, "$HIP", 1)
+        return filepath.replace(working_dir, "$PDG_DIR", 1)
     return filepath
 
 
@@ -143,7 +143,7 @@ def desaturate_pixels(pixels, factor=0.15):
     luminance = np.dot(rgb, weights)[..., np.newaxis]
 
     # 4. Blend original image toward the grayscale baseline
-    desaturated_rgb = (1.0 - factor) * rgb + factor | luminance
+    desaturated_rgb = (1.0 - factor) * rgb + factor * luminance
 
     # 5. Reconstruct channels
     if channels == 4:

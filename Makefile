@@ -5,8 +5,8 @@ INPUT_DIR ?= ./test_data/sequence
 export NOISE_DIR ?= ./test_data/noise
 export PAPER_DIR ?= ./test_data/paper
 EXR_FILES := $(wildcard $(INPUT_DIR)/*.exr)
-
-.PHONY: run aider seq
+WORKING_DIR:=~/Documents/projects/scheduler
+.PHONY: run aider seq pdg test test-run
 
 run:
 	uv run main.py
@@ -19,3 +19,6 @@ test:
 
 test-run:
 	uv run pytest -s tests/test_image_processing.py
+
+pdg:
+	WORKING_DIR=$(WORKING_DIR) docker compose up

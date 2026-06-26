@@ -12,7 +12,7 @@ from src.utils import (
     read_image,
     oiio_buf_to_image,
     map_hip_to_working_dir,
-    map_working_dir_to_hip,
+    map_working_dir_to_pdg,
 )
 from src.settings import (
     LIGHT,
@@ -28,7 +28,6 @@ from src.settings import (
     PAPER_SCALE,
 )
 
-# Configuration for textures, defaulting to standard paths if not set
 NOISE_DIR = os.getenv("NOISE_DIR")
 PAPER_DIR = os.getenv("PAPER_DIR")
 
@@ -46,7 +45,6 @@ class ProcessRequest(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Allocate resources at startup
     init_global_textures(NOISE_DIR, PAPER_DIR)
     yield
 
@@ -74,5 +72,5 @@ async def process_image(request: ProcessRequest):
     filepath = params.pop("filepath")
     filepath = map_hip_to_working_dir(filepath)
     output_path = process_image_file(filepath, **params)
-    output_path = map_working_dir_to_hip(output_path)
+    output_path = map_working_dir_to_pdg(output_path)
     return {"output_path": output_path}

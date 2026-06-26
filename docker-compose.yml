@@ -1,10 +1,15 @@
 services:
   app:
     build: .
+    # restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "9865:8000"
     volumes:
       - .:/app
-      - /tmp:/tmp/app_data
+      - ${WORKING_DIR:-/tmp/default_working_dir}:/app/working_dir
     environment:
       - PYTHONUNBUFFERED=1
+      - UV_CACHE_DIR=/app/.uv_cache
+      - NOISE_DIR=/app/test_data/noise
+      - PAPER_DIR=/app/test_data/paper
+    user: "${UID:-1000}:${GID:-1000}"

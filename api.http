@@ -4,3 +4,12 @@ Content-Type: application/json
 {
   "filepath": "./test_data/0001.exr"
 }
+
+###
+
+POST http://localhost:9865/process/
+Content-Type: application/json
+
+{
+  "filepath": "$HOUDINI_TEMP/houdini_temp/0001.exr"
+}
