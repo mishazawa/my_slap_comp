@@ -5,6 +5,6 @@ services:
       - "8000:8000"
     volumes:
       - .:/app
-      # ai! i also need dedicated mount here which mounts system tmp folder to some endpoint
+      - /tmp:/tmp/app_data
     environment:
       - PYTHONUNBUFFERED=1
