@@ -11,6 +11,7 @@ A Python script for processing EXR files using OpenImageIO. It extracts Cryptoma
   - Outlines
   - Drop shadows
 - **I/O**: Uses OpenImageIO for reading/writing.
+- **API**: Includes a FastAPI server for remote processing.
 
 ## Requirements
 
@@ -20,14 +21,27 @@ A Python script for processing EXR files using OpenImageIO. It extracts Cryptoma
 
 ## Usage
 
-### Direct Execution
+### Running the Server
+The project runs as a FastAPI server. Start it using:
 ```bash
-uv run main.py <input_path.exr> [--noise-dir <dir>] [--paper-dir <dir>]
+uv run main.py
 ```
 
+### API
+The server exposes a `/process/` endpoint.
+- **Endpoint**: `POST /process/`
+- **Payload**:
+  ```json
+  {
+    "filepath": "./test_data/0001.exr"
+  }
+  ```
+- Use the provided `api.http` file with the REST Client extension in VS Code or similar tools to test.
+
 ### Makefile Commands
-- `make run`: Runs the pipeline on `./test_data/0001.exr`.
-- `make seq`: Processes all EXR files in `./test_data/sequence`.
+- `make run`: Starts the API server.
+- `make test`: Runs the test suite.
+- `make pdg`: Starts the docker-compose environment.
 
 ## Pipeline Steps
 
