@@ -66,7 +66,7 @@ def process_image_file(input_path, **kwargs):
 async def process_image(request: ProcessRequest):
     params = request.dict()
     filepath = params.pop("filepath")
-    
+    # ai! make this mapping of $HIP as 2 util functions in utils.py
     # Map $HIP to WORKING_DIR
     working_dir = os.getenv("WORKING_DIR", "/app/working_dir")
     if filepath.startswith("$HIP"):
