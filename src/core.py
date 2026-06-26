@@ -73,20 +73,14 @@ def slap_comp(img, executor_type=EXECUTOR_THREAD, **kwargs):
     color_plane = img.get_plane(COLOR_PLANE)
     depth_plane = img.get_plane(DEPTH_PLANE)
 
-    ordered_passes_pool = []
-    static_passes_pool = []
+    tasks = []
 
     for crypto_id, name, target_hash in crypto_passes:
-        if name == "/ground/mesh_0":
-            static_passes_pool.append((0.0, crypto_id, name, target_hash))
-            continue
-
         mask = decode_cryptomatte(img, crypto_id, target_hash)
         avg_depth = median(depth_plane["pixels"][mask > 0.0])
-        ordered_passes_pool.append((avg_depth, crypto_id, name, target_hash))
+        tasks.append((avg_depth, crypto_id, name, target_hash))
 
-    ordered_passes_pool.sort(key=lambda x: x[0], reverse=True)
-    tasks = static_passes_pool + ordered_passes_pool
+    tasks.sort(key=lambda x: x[0], reverse=True)
 
     height, width, _ = color_plane["pixels"].shape
     spec = oiio.ImageSpec(width, height, 4, oiio.FLOAT)

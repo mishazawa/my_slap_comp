@@ -16,3 +16,4 @@ test_data/
 .serena/
 *.bak
 .pytest_cache/
+.uv_cache/
