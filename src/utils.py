@@ -1,8 +1,23 @@
 import struct
+import os
 import OpenImageIO as oiio
 import numpy as np
 from src.image import Image, COLOR_PLANE
 from src.settings import SHADOW_LIMIT
+
+
+def map_hip_to_working_dir(filepath: str) -> str:
+    working_dir = os.getenv("WORKING_DIR", "/app/working_dir")
+    if filepath.startswith("$HIP"):
+        return filepath.replace("$HIP", working_dir)
+    return filepath
+
+
+def map_working_dir_to_hip(filepath: str) -> str:
+    working_dir = os.getenv("WORKING_DIR", "/app/working_dir")
+    if filepath.startswith(working_dir):
+        return filepath.replace(working_dir, "$HIP", 1)
+    return filepath
 
 
 def read_image(filepath):
@@ -128,7 +143,7 @@ def desaturate_pixels(pixels, factor=0.15):
     luminance = np.dot(rgb, weights)[..., np.newaxis]
 
     # 4. Blend original image toward the grayscale baseline
-    desaturated_rgb = (1.0 - factor) * rgb + factor * luminance
+    desaturated_rgb = (1.0 - factor) * rgb + factor | luminance
 
     # 5. Reconstruct channels
     if channels == 4:

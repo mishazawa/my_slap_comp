@@ -7,7 +7,13 @@ from typing import Optional, List, Tuple
 
 from src.globals import init_global_textures
 from src.core import slap_comp
-from src.utils import write_image, read_image, oiio_buf_to_image
+from src.utils import (
+    write_image,
+    read_image,
+    oiio_buf_to_image,
+    map_hip_to_working_dir,
+    map_working_dir_to_hip,
+)
 from src.settings import (
     LIGHT,
     SHADOW_COLOR,
@@ -66,16 +72,7 @@ def process_image_file(input_path, **kwargs):
 async def process_image(request: ProcessRequest):
     params = request.dict()
     filepath = params.pop("filepath")
-    # ai! make this mapping of $HIP as 2 util functions in utils.py
-    # Map $HIP to WORKING_DIR
-    working_dir = os.getenv("WORKING_DIR", "/app/working_dir")
-    if filepath.startswith("$HIP"):
-        filepath = filepath.replace("$HIP", working_dir)
-
+    filepath = map_hip_to_working_dir(filepath)
     output_path = process_image_file(filepath, **params)
-    
-    # Map WORKING_DIR back to $HIP
-    if output_path.startswith(working_dir):
-        output_path = output_path.replace(working_dir, "$HIP", 1)
-        
+    output_path = map_working_dir_to_hip(output_path)
     return {"output_path": output_path}
