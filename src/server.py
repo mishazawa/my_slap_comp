@@ -68,9 +68,13 @@ def process_image_file(input_path, **kwargs):
 
 @app.post("/process/")
 async def process_image(request: ProcessRequest):
-    # ai! request parameter filepath received as $HIP/render/004.solaris_unlit_setup_recovered.my_comp.0001.exr
-    # i need to map $HIP to env variable WORKING_DIR
     params = request.dict()
     filepath = params.pop("filepath")
+    
+    # Map $HIP to WORKING_DIR
+    working_dir = os.getenv("WORKING_DIR", "/app/working_dir")
+    if filepath.startswith("$HIP"):
+        filepath = filepath.replace("$HIP", working_dir)
+
     output_path = process_image_file(filepath, **params)
     return {"output_path": output_path}
