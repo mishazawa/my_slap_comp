@@ -73,6 +73,9 @@ async def process_image(request: ProcessRequest):
         filepath = filepath.replace("$HIP", working_dir)
 
     output_path = process_image_file(filepath, **params)
-    # ai! [PDG INFO] Response: {"output_path":"/app/working_dir/render/004.solaris_unlit_s
-    # etup_recovered.my_comp.0001.png"} i need map this back to $HIP
+    
+    # Map WORKING_DIR back to $HIP
+    if output_path.startswith(working_dir):
+        output_path = output_path.replace(working_dir, "$HIP", 1)
+        
     return {"output_path": output_path}
