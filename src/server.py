@@ -31,14 +31,10 @@ class ProcessRequest(BaseModel):
     filepath: str
     shadow_color: Optional[Tuple[float, float, float]] = SHADOW_COLOR
     shadow_intensity: Optional[float] = SHADOW_INTENSITY
-    shadow_limit: Optional[int] = SHADOW_LIMIT
     outline_thickness: Optional[int] = OUTLINE_THICKNESS
     outline_color: Optional[Tuple[float, float, float]] = OUTLINE_COLOR
     mask_smooth_width: Optional[int] = MASK_SMOOTH_WIDTH
     mask_smooth_height: Optional[int] = MASK_SMOOTH_HEIGHT
-    fractal_wave_amplitude_rel: Optional[float] = FRACTAL_WAVE_AMPLITUDE_REL
-    texture_based_amplitude_rel: Optional[float] = TEXTURE_BASED_AMPLITUDE_REL
-    paper_scale: Optional[float] = PAPER_SCALE
     light_vector: Optional[List[float]] = LIGHT
 
 
@@ -77,4 +73,6 @@ async def process_image(request: ProcessRequest):
         filepath = filepath.replace("$HIP", working_dir)
 
     output_path = process_image_file(filepath, **params)
+    # ai! [PDG INFO] Response: {"output_path":"/app/working_dir/render/004.solaris_unlit_s
+    # etup_recovered.my_comp.0001.png"} i need map this back to $HIP
     return {"output_path": output_path}
