@@ -1,0 +1,10 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      # ai! i also need dedicated mount here which mounts system tmp folder to some endpoint
+    environment:
+      - PYTHONUNBUFFERED=1
