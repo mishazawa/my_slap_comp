@@ -1,15 +1,23 @@
-POST http://localhost:8000/process/
-Content-Type: application/json
-
-{
-  "filepath": "./test_data/0001.exr"
-}
-
-###
-
 POST http://localhost:9865/process/
 Content-Type: application/json
 
 {
-  "filepath": "$HOUDINI_TEMP/houdini_temp/0001.exr"
+  "filepath": "$HIP/test_data/solids.exr"
+}
+
+###
+POST http://localhost:9865/process/background
+Content-Type: application/json
+
+{
+  "filepath": "$HIP/test_data/background.exr"
+}
+
+###
+
+POST http://localhost:9865/process/transparent
+Content-Type: application/json
+
+{
+  "filepath": "$HIP/test_data/transparent.exr"
 }

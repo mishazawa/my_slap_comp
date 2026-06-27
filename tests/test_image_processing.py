@@ -1,18 +1,21 @@
 import pytest
 from pathlib import Path
-from src.utils import read_image, write_image, oiio_buf_to_image
-from src.crypto import decode_cryptomatte, list_cryptopass
+from src.utils import read_image, write_image, oiio_buf_to_image, median
+from src.image_processing.crypto import decode_cryptomatte, list_cryptopass
+from src.image_processing.filters import FilterConfig
 from src.core import slap_comp
 from src.globals import init_global_textures
+from src.presets import cutout_element_preset
+import numpy as np
 import src.settings as settings
 
-MOCK_IMAGE = "./test_data/0001.exr"
+MOCK_IMAGE = "./test_data/solids.exr"
 
 
 @pytest.fixture(autouse=True)
 def setup_globals():
     # Initialize with dummy paths for testing purposes
-    init_global_textures("./test_data/noise", "./test_data/paper")
+    init_global_textures("./test_data/test", "./test_data/test")
 
 
 @pytest.fixture
@@ -32,7 +35,7 @@ def test_decode_cryptomatte(mock_image):
         pytest.skip("No crypto passes found in image")
 
     crypto_id, name, target_hash = passes[0]
-    mask = decode_cryptomatte(mock_image, crypto_id, target_hash)
+    mask = decode_cryptomatte(mock_image, target_hash)
 
     assert mask is not None
     # Assuming mask is a numpy array
@@ -50,14 +53,20 @@ def test_slap_comp_execution(mock_image, tmp_path):
     # Run slap_comp
     final_gamma_buffer = slap_comp(
         mock_image,
-        light_vector=settings.LIGHT,
-        shadow_color=settings.SHADOW_COLOR,
-        shadow_intensity=settings.SHADOW_INTENSITY,
-        outline_thickness=settings.OUTLINE_THICKNESS,
-        outline_color=settings.OUTLINE_COLOR,
-        mask_smooth_width=settings.MASK_SMOOTH_WIDTH,
-        mask_smooth_height=settings.MASK_SMOOTH_HEIGHT,
-        executor_type=settings.EXECUTOR_THREAD,
+        sort_func=median,
+        pass_processor=cutout_element_preset,
+        config=FilterConfig(
+            seed=settings.SEED,
+            rng=np.random.default_rng(settings.SEED),
+            light_vector=[0, 0, 0],
+            shadow_color=(0, 0, 1),
+            shadow_intensity=1,
+            outline_thickness=5,
+            outline_color=(1, 0, 0),
+            mask_smooth_width=1,
+            mask_smooth_height=1,
+            noise_scale=0.1,
+        ),
     )
 
     # Define output path

@@ -1,4 +1,3 @@
-import random
 from pathlib import Path
 import OpenImageIO as oiio
 
@@ -34,13 +33,13 @@ class Textures:
         if not self._paper_pool:
             print(f"Warning: No valid textures found in paper directory: {paper_dir}")
 
-    def noise(self):
+    def noise(self, random):
         """Returns a random noise ImageBuf from the pool."""
         if not self._noise_pool:
             return None
         return random.choice(self._noise_pool)
 
-    def paper(self):
+    def paper(self, random):
         """Returns a random paper ImageBuf from the pool."""
         if not self._paper_pool:
             return None

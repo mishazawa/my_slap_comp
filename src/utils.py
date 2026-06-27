@@ -110,28 +110,6 @@ def hex_to_float32(hex_str: str) -> float:
     return struct.unpack(">f", packed)[0]
 
 
-def get_masked_pixels(
-    color_buf: oiio.ImageBuf, mask_buf: oiio.ImageBuf
-) -> oiio.ImageBuf:
-
-    oiio.ImageBufAlgo.mul(color_buf, color_buf, mask_buf)
-    return color_buf
-
-
-def calculate_shadow_params(light_vec, max_shadow_distance=SHADOW_LIMIT):
-    lx, ly, lz = light_vec
-
-    shadow_multiplier = max_shadow_distance / np.maximum(lz, 0.01)
-
-    offset_x = float(-lx * shadow_multiplier)
-    offset_y = float(-ly * shadow_multiplier)
-
-    # Blur radius can naturally increase if the shadow gets longer
-    blur_radius = 2.0 + (shadow_multiplier * 0.5)
-
-    return (offset_x, offset_y), blur_radius
-
-
 def ensure_rgba_buf(pixels):
     """
     Converts a NumPy array to RGBA if needed, and WRAPS it into an ImageBuf.

@@ -1,7 +1,6 @@
 import OpenImageIO as oiio
 
 COLOR_PLANE = "directemission"
-CRYPTO_PLANE = "CryptoPrimitives00"
 DEPTH_PLANE = "depth"
 UV_PLANE = "st"
 
