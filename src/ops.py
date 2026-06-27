@@ -13,7 +13,6 @@ from src.settings import (
     PAPER_SCALE,
 )
 from src.utils import (
-    desaturate_pixels,
     calculate_shadow_params,
 )
 
