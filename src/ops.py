@@ -18,6 +18,40 @@ from src.utils import (
 )
 
 
+def desaturate_pixels(pixels, factor=0.15):
+    """
+    Slightly desaturates an RGB or RGBA image. Safe for single-channel inputs.
+    """
+    # 1. Check channels
+    channels = pixels.shape[2] if pixels.ndim == 3 else 1
+
+    # If the image is already single-channel (grayscale), it cannot be desaturated
+    if channels == 1:
+        return pixels
+
+    # Separate RGB from Alpha if present
+    if channels == 4:
+        rgb = pixels[:, :, :3]
+        alpha = pixels[:, :, 3:4]
+    else:
+        rgb = pixels
+
+    # 2. Standard Rec. 709 luminance weights
+    weights = np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
+
+    # 3. Create the grayscale baseline
+    luminance = np.dot(rgb, weights)[..., np.newaxis]
+
+    # 4. Blend original image toward the grayscale baseline
+    desaturated_rgb = (1.0 - factor) * rgb + factor * luminance
+
+    # 5. Reconstruct channels
+    if channels == 4:
+        return np.concatenate([desaturated_rgb, alpha], axis=2)
+
+    return desaturated_rgb
+
+
 def smooth_mask(mask_buf: oiio.ImageBuf, width=5, height=5) -> oiio.ImageBuf:
     """
     Accepts an ImageBuf, runs the filter entirely in C++,

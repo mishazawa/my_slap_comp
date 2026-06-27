@@ -18,14 +18,10 @@ from src.settings import (
     LIGHT,
     SHADOW_COLOR,
     SHADOW_INTENSITY,
-    SHADOW_LIMIT,
     OUTLINE_THICKNESS,
     OUTLINE_COLOR,
     MASK_SMOOTH_WIDTH,
     MASK_SMOOTH_HEIGHT,
-    FRACTAL_WAVE_AMPLITUDE_REL,
-    TEXTURE_BASED_AMPLITUDE_REL,
-    PAPER_SCALE,
 )
 
 NOISE_DIR = os.getenv("NOISE_DIR")
@@ -74,3 +70,13 @@ async def process_image(request: ProcessRequest):
     output_path = process_image_file(filepath, **params)
     output_path = map_working_dir_to_pdg(output_path)
     return {"output_path": output_path}
+
+
+@app.post("/process/background")
+async def process_bg(request: ProcessRequest):
+    pass
+
+
+@app.post("/process/transparend")
+async def process_transparent(request: ProcessRequest):
+    pass
