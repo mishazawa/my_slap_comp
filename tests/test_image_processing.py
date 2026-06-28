@@ -1,5 +1,6 @@
 import pytest
 from pathlib import Path
+from src.server import process_bg, process_transparent, ProcessRequest  
 from src.utils import read_image, write_image, oiio_buf_to_image, median
 from src.image_processing.crypto import decode_cryptomatte, list_cryptopass
 from src.image_processing.filters import FilterConfig
@@ -9,8 +10,9 @@ from src.presets import cutout_element_preset
 import numpy as np
 import src.settings as settings
 
-MOCK_IMAGE = "./test_data/solids.exr"
-
+MOCK_IMAGE = "./test_data/opaque.exr"
+MOCK_IMAGE_BG = "./test_data/background.exr"
+MOCK_IMAGE_TRANS = "./test_data/transparent.exr"
 
 @pytest.fixture(autouse=True)
 def setup_globals():
@@ -81,3 +83,22 @@ def test_slap_comp_execution(mock_image, tmp_path):
     # Verify file exists
     assert output_path.exists()
     assert output_path.stat().st_size > 0
+
+
+@pytest.mark.asyncio
+async def test_process_background_direct():
+    request = ProcessRequest(filepath=MOCK_IMAGE_BG)
+    result = await process_bg(request)
+    output_path = Path(result["output_path"])
+    assert output_path.exists()
+    assert output_path.stat().st_size > 0
+
+
+@pytest.mark.asyncio
+async def test_process_transparent_direct():
+    request = ProcessRequest(filepath=MOCK_IMAGE_TRANS)
+    result = await process_transparent(request)
+    output_path = Path(result["output_path"])
+    assert output_path.exists()
+    assert output_path.stat().st_size > 0
+

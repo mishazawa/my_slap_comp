@@ -65,7 +65,7 @@ def process_image_file(input_path, sort_func, pass_processor, config: FilterConf
 
 
 def process_input(request: ProcessRequest, sort_func, pass_processor):
-    params = request.dict()
+    params = request.model_dump()
     filepath = params.pop("filepath")
     filepath = map_hip_to_working_dir(filepath)
     output_path = process_image_file(
