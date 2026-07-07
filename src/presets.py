@@ -2,7 +2,6 @@ from src.image_processing.filters import (
     add_outline,
     add_shadow,
     apply_paper,
-    smooth_mask,
     FilterConfig,
 )
 from src.image_processing.masks import create_mask_buf, get_masked_pixels
