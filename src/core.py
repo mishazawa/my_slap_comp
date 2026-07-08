@@ -1,8 +1,7 @@
 import OpenImageIO as oiio
-from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 
-from src.image import COLOR_PLANE, DEPTH_PLANE
+from src.image import COLOR_PLANE, ZINDEX_PLANE
 
 from src.image_processing.crypto import (
     list_cryptopass,
@@ -11,24 +10,26 @@ from src.image_processing.crypto import (
 
 from src.image_processing.filters import FilterConfig
 
+from src.utils import max
 
-def calc_depth(img, target_hash, sort_func=None):
-    depth_plane = img.get_plane(DEPTH_PLANE)
+
+def calc_depth(img, target_hash):
+    depth_plane = img.get_plane(ZINDEX_PLANE)
     mask = decode_cryptomatte(img, target_hash)
-    return sort_func(depth_plane["pixels"][mask > 0.0])
+    return max(depth_plane["pixels"][..., 0][mask > 0.0])
 
 
-def slap_comp(img, sort_func, pass_processor, config: FilterConfig):
+def slap_comp(img, pass_processor, config: FilterConfig):
     crypto_passes = list_cryptopass(img)
     color_plane = img.get_plane(COLOR_PLANE)
 
     tasks = []
 
     for crypto_id, name, target_hash in crypto_passes:
-        avg_depth = calc_depth(img, target_hash, sort_func)
+        avg_depth = calc_depth(img, target_hash)
         tasks.append((avg_depth, crypto_id, name, target_hash))
 
-    tasks.sort(key=lambda x: x[0], reverse=True)
+    tasks.sort(key=lambda x: x[0])
 
     height, width, _ = color_plane["pixels"].shape
     spec = oiio.ImageSpec(width, height, 4, oiio.FLOAT)
@@ -44,10 +45,7 @@ def slap_comp(img, sort_func, pass_processor, config: FilterConfig):
         config=config,
     )
 
-    processed_layers = []
-
-    with ThreadPoolExecutor() as executor:
-        processed_layers = list(executor.map(preset, tasks))
+    processed_layers = [preset(task) for task in tasks]
 
     for layer_buf in processed_layers:
         oiio.ImageBufAlgo.over(accumulated_buffer, layer_buf, accumulated_buffer)

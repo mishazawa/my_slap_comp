@@ -18,7 +18,7 @@ test:
 	uv run pytest -s tests/
 
 test-run:
-	uv run pytest -s tests/test_image_processing.py
+	uv run pytest -s tests/test_run.py
 
 pdg:
 	WORKING_DIR=$(WORKING_DIR) docker compose up

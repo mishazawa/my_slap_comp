@@ -46,12 +46,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 
-def process_image_file(input_path, sort_func, pass_processor, config: FilterConfig):
+def process_image_file(input_path, pass_processor, config: FilterConfig):
 
     img = read_image(input_path)
     final_gamma_buffer = slap_comp(
         img,
-        sort_func=sort_func,
         pass_processor=pass_processor,
         config=config,
     )
@@ -70,7 +69,6 @@ def process_input(request: ProcessRequest, sort_func, pass_processor):
     filepath = map_hip_to_working_dir(filepath)
     output_path = process_image_file(
         filepath,
-        sort_func=sort_func,
         pass_processor=pass_processor,
         config=request.to_filter_config(),
     )

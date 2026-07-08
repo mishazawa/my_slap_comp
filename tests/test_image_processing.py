@@ -1,7 +1,7 @@
 import pytest
 from pathlib import Path
-from src.server import process_bg, process_transparent, ProcessRequest  
-from src.utils import read_image, write_image, oiio_buf_to_image, median
+from src.server import process_bg, process_transparent, ProcessRequest
+from src.utils import read_image, write_image, oiio_buf_to_image
 from src.image_processing.crypto import decode_cryptomatte, list_cryptopass
 from src.image_processing.filters import FilterConfig
 from src.core import slap_comp
@@ -13,6 +13,7 @@ import src.settings as settings
 MOCK_IMAGE = "./test_data/opaque.exr"
 MOCK_IMAGE_BG = "./test_data/background.exr"
 MOCK_IMAGE_TRANS = "./test_data/transparent.exr"
+
 
 @pytest.fixture(autouse=True)
 def setup_globals():
@@ -55,7 +56,6 @@ def test_slap_comp_execution(mock_image, tmp_path):
     # Run slap_comp
     final_gamma_buffer = slap_comp(
         mock_image,
-        sort_func=median,
         pass_processor=cutout_element_preset,
         config=FilterConfig(
             seed=settings.SEED,
@@ -101,4 +101,3 @@ async def test_process_transparent_direct():
     output_path = Path(result["output_path"])
     assert output_path.exists()
     assert output_path.stat().st_size > 0
-

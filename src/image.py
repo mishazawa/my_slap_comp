@@ -2,6 +2,7 @@ import OpenImageIO as oiio
 
 COLOR_PLANE = "directemission"
 DEPTH_PLANE = "depth"
+ZINDEX_PLANE = "zindex"
 UV_PLANE = "st"
 
 
