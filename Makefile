@@ -6,7 +6,8 @@ export NOISE_DIR ?= ./test_data/noise
 export PAPER_DIR ?= ./test_data/paper
 EXR_FILES := $(wildcard $(INPUT_DIR)/*.exr)
 WORKING_DIR:=~/Documents/projects/scheduler
-.PHONY: run aider seq pdg test test-run
+
+.PHONY: run aider seq pdg test test-run run-fg
 
 run:
 	uv run main.py
@@ -22,3 +23,6 @@ test-run:
 
 pdg:
 	WORKING_DIR=$(WORKING_DIR) docker compose up
+
+run-fg:
+	WORKING_DIR=$(WORKING_DIR) uv run run_folder.py $(WORKING_DIR)/fg 

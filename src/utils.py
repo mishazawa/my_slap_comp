@@ -3,7 +3,6 @@ import os
 import OpenImageIO as oiio
 import numpy as np
 from src.image import Image, COLOR_PLANE
-from src.settings import SHADOW_LIMIT
 
 
 def map_hip_to_working_dir(filepath: str) -> str:

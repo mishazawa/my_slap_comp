@@ -17,3 +17,4 @@ test_data/
 *.bak
 .pytest_cache/
 .uv_cache/
+working_dir/
