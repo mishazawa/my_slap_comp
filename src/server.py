@@ -77,15 +77,15 @@ def process_input(request: ProcessRequest, sort_func, pass_processor):
 
 
 @app.post("/process/")
-async def process_image(request: ProcessRequest):
+def process_image(request: ProcessRequest):
     return process_input(request, median, cutout_element_preset)
 
 
 @app.post("/process/background")
-async def process_bg(request: ProcessRequest):
+def process_bg(request: ProcessRequest):
     return process_input(request, average, cutout_element_preset)
 
 
 @app.post("/process/transparend")
-async def process_transparent(request: ProcessRequest):
+def process_transparent(request: ProcessRequest):
     return process_input(request, median, noop_preset)

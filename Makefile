@@ -7,7 +7,7 @@ export PAPER_DIR ?= ./test_data/paper
 EXR_FILES := $(wildcard $(INPUT_DIR)/*.exr)
 WORKING_DIR:=~/Documents/projects/scheduler
 
-.PHONY: run aider seq pdg test test-run run-fg
+.PHONY: run aider seq pdg test test-run run-fg run-bg
 
 run:
 	uv run main.py
@@ -26,3 +26,6 @@ pdg:
 
 run-fg:
 	WORKING_DIR=$(WORKING_DIR) uv run run_folder.py $(WORKING_DIR)/fg 
+
+run-bg:
+	WORKING_DIR=$(WORKING_DIR) uv run run_folder.py $(WORKING_DIR)/bg 

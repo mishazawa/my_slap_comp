@@ -11,10 +11,10 @@ import argparse
 import os
 import random
 import sys
-from pathlib import Path
-
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
 import requests
+from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 def map_working_dir_to_hip(filepath: str) -> str:
@@ -28,18 +28,21 @@ def process_file(f, url, seed_max, timeout):
     seed = random.randint(0, seed_max)
     resolved_path = map_working_dir_to_hip(str(f.resolve()))
     payload = {"filepath": resolved_path, "seed": seed}
+    start = time.monotonic()
     try:
         resp = requests.post(url, json=payload, timeout=timeout)
+        elapsed = time.monotonic() - start
         if resp.ok:
-            print(f"[OK]   {f.name} (seed={seed}) -> {resp.status_code}")
+            print(f"[OK]   {f.name} (seed={seed}) -> {resp.status_code} ({elapsed:.1f}s)")
             return True
         else:
             print(
-                f"[FAIL] {f.name} (seed={seed}) -> {resp.status_code}: {resp.text[:200]}"
+                f"[FAIL] {f.name} (seed={seed}) -> {resp.status_code}: {resp.text[:200]} ({elapsed:.1f}s)"
             )
             return False
     except requests.exceptions.RequestException as e:
-        print(f"[ERROR] {f.name}: {e}")
+        elapsed = time.monotonic() - start
+        print(f"[ERROR] {f.name}: {e} ({elapsed:.1f}s)")
         return False
 
 
@@ -57,7 +60,6 @@ def main():
     parser.add_argument(
         "--seed-max", type=int, default=2**31 - 1, help="Max value for random seed"
     )
-    parser.add_argument("--workers", type=int, default=10, help="Max workers")
     parser.add_argument(
         "--timeout", type=int, default=600, help="Per-request timeout in seconds"
     )
@@ -78,11 +80,8 @@ def main():
     print(f"Found {len(files)} EXR file(s). Sending to {args.url} ...\n")
 
     ok, failed = 0, 0
-    with ThreadPoolExecutor(max_workers=args.workers) as executor:
-        futures = [
-            executor.submit(process_file, f, args.url, args.seed_max, args.timeout)
-            for f in files
-        ]
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = [executor.submit(process_file, f, args.url, args.seed_max, args.timeout) for f in files]
         for future in as_completed(futures):
             if future.result():
                 ok += 1
